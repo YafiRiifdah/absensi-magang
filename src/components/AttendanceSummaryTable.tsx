@@ -16,57 +16,60 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Calendar, User, LogIn, Mail, GitBranch } from "lucide-react" // Import ikon tambahan
+import { Clock, Calendar, User, LogIn, Mail, GitBranch } from "lucide-react"
 
-// Import UserRole dari utils/api.ts
 import { UserRole } from '@/app/utils/api';
 
-// Definisikan tipe untuk rekap absensi yang akan diterima oleh komponen ini
-// Ini harus sesuai dengan format data yang Anda transformasikan di DashboardPage
 interface AttendanceSummary {
   nama: string;
-  nim: string | null; // Tambahkan
-  divisi: string | null; // Tambahkan
-  email: string; // Tambahkan
+  nim: string | null;
+  divisi: string | null;
+  email: string;
   tanggal: string;
-  jamMasuk: string;
-  jamPulang: string | null; // <-- PASTIKAN INI string | null (karena bisa '-')
+  jamMasuk: string; // Ini akan dalam format HH.MM
+  jamPulang: string | null; // Ini akan dalam format HH.MM
   status: string;
-  komentar: string | null; // Tambahkan
+  komentar: string | null;
 }
 
 interface AttendanceSummaryTableProps {
   data: AttendanceSummary[];
-  role: UserRole | null; // Menerima role dari DashboardPage
+  role: UserRole | null;
 }
 
 export default function AttendanceSummaryTable({ data, role }: AttendanceSummaryTableProps) {
-  // Function to format date
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      // Menggunakan `id-ID` untuk format lokal Indonesia (contoh: 24 Jun 2025)
       return date.toLocaleDateString('id-ID', {
         day: '2-digit',
         month: 'short',
         year: 'numeric'
       });
     } catch {
-      return dateString; // Fallback jika string tanggal tidak valid
+      return dateString;
     }
   };
 
-  // Function to get status badge based on time (assuming standard start time for now)
+  // Function to get status badge based on time
   const getStatusBadge = (status: string, jamMasuk: string | null, jamPulang: string | null) => {
-    // Sesuaikan logika badge agar sesuai dengan 'status' dari backend ('Hadir', 'Izin', 'Sakit', 'Alpha')
     if (status === 'Hadir') {
-      if (!jamMasuk) return <Badge variant="destructive">Tidak Hadir</Badge>; // Seharusnya tidak terjadi jika status Hadir
+      if (!jamMasuk) return <Badge variant="destructive">Tidak Hadir</Badge>;
 
-      // Logika terlambat/tepat waktu hanya jika statusnya Hadir dan ada jamMasuk
-      const masukTime = new Date(`2000-01-01T${jamMasuk}`);
-      // Asumsi jam masuk standar 08:00, ini bisa diambil dari jadwal API jika mau
-      const standardTime = new Date(`2000-01-01T08:00:00`); 
+      // --- PERBAIKAN DI SINI ---
+      // Ganti titik (.) menjadi titik dua (:) sebelum mem-parsing waktu
+      const parsedJamMasuk = jamMasuk.replace('.', ':');
+      const masukTime = new Date(`2000-01-01T${parsedJamMasuk}:00`); // Tambahkan :00 untuk detik
+      // --- AKHIR PERBAIKAN ---
 
+      // Asumsi jam masuk standar 08:00 (bisa diambil dari jadwal API jika mau)
+      const standardTime = new Date(`2000-01-01T08:00:00`);
+
+      if (masukTime.toString() === 'Invalid Date') { // Tambahkan pengecekan untuk Invalid Date
+          console.error("Gagal parsing jamMasuk:", jamMasuk);
+          return <Badge variant="destructive">Error Waktu</Badge>;
+      }
+      
       if (masukTime > standardTime) {
         return <Badge variant="outline" className="text-orange-600 border-orange-600">Terlambat</Badge>;
       }
@@ -78,7 +81,7 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
     } else if (status === 'Alpha') {
       return <Badge variant="destructive">Alpha</Badge>;
     }
-    return <Badge variant="outline">Belum Absen</Badge>; // Default atau status tidak dikenal
+    return <Badge variant="outline">Belum Absen</Badge>;
   };
 
   return (
@@ -103,7 +106,6 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
                     Tanggal
                   </div>
                 </TableHead>
-                {/* Kolom tambahan untuk Mentor/Admin */}
                 {role !== 'mahasiswa' && (
                   <>
                     <TableHead className="font-semibold">
@@ -114,11 +116,11 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
                     </TableHead>
                     <TableHead className="font-semibold">
                       <div className="flex items-center gap-2">
-                        <span className="h-4 w-4 text-primary">#</span> {/* Ikon placeholder untuk NIM */}
+                        <span className="h-4 w-4 text-primary">#</span>
                         NIM
                       </div>
                     </TableHead>
-                     <TableHead className="font-semibold">
+                    <TableHead className="font-semibold">
                       <div className="flex items-center gap-2">
                         <GitBranch className="h-4 w-4" />
                         Divisi
@@ -159,7 +161,6 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
                         {formatDate(item.tanggal)}
                       </div>
                     </TableCell>
-                    {/* Kolom tambahan untuk Mentor/Admin */}
                     {role !== 'mahasiswa' && (
                       <>
                         <TableCell className="font-medium">
@@ -197,7 +198,6 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
                     <TableCell>{item.komentar || '-'}</TableCell>
                     {(role === 'mentor' || role === 'admin') && (
                       <TableCell>
-                        {/* Contoh tombol Verifikasi/Edit/Delete untuk Mentor/Admin */}
                         <button className="text-indigo-600 hover:text-indigo-900 font-medium">
                           Detail
                         </button>
@@ -207,7 +207,6 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
                 ))
               ) : (
                 <TableRow>
-                  {/* colspan disesuaikan dengan jumlah kolom (10 untuk non-mahasiswa, 7 untuk mahasiswa) */}
                   <TableCell colSpan={role !== 'mahasiswa' ? 10 : 7} className="h-24 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <User className="h-8 w-8" />
@@ -224,7 +223,6 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
         {/* Summary Stats (perlu disesuaikan agar hanya untuk Admin/Mentor, dan data dihitung ulang) */}
         {role !== 'mahasiswa' && data.length > 0 && (
           <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Hitung total karyawan unik */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
@@ -237,7 +235,6 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
               </CardContent>
             </Card>
             
-            {/* Contoh perhitungan tepat waktu / terlambat / tidak hadir */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
@@ -245,7 +242,7 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
                   <div>
                     <p className="text-sm text-muted-foreground">Tepat Waktu</p>
                     <p className="text-2xl font-bold text-green-600">
-                      {data.filter(item => item.status === 'Hadir' && item.jamMasuk && new Date(`2000-01-01T${item.jamMasuk}`) <= new Date(`2000-01-01T08:00:00`)).length}
+                      {data.filter(item => item.status === 'Hadir' && item.jamMasuk && item.jamMasuk.replace('.', ':') && new Date(`2000-01-01T${item.jamMasuk.replace('.', ':')}:00`) <= new Date(`2000-01-01T08:00:00`)).length}
                     </p>
                   </div>
                 </div>
@@ -259,7 +256,7 @@ export default function AttendanceSummaryTable({ data, role }: AttendanceSummary
                   <div>
                     <p className="text-sm text-muted-foreground">Terlambat</p>
                     <p className="text-2xl font-bold text-orange-600">
-                      {data.filter(item => item.status === 'Hadir' && item.jamMasuk && new Date(`2000-01-01T${item.jamMasuk}`) > new Date(`2000-01-01T08:00:00`)).length}
+                      {data.filter(item => item.status === 'Hadir' && item.jamMasuk && item.jamMasuk.replace('.', ':') && new Date(`2000-01-01T${item.jamMasuk.replace('.', ':')}:00`) > new Date(`2000-01-01T08:00:00`)).length}
                     </p>
                   </div>
                 </div>
